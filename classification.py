@@ -169,15 +169,101 @@ def sentiment_predict(new_sentence):
   max = np.argmax(score)
   
   if max == 0:
-    print("부정")
+    print("부정 : ",end="")
   elif max == 1:
-    print("중립")
+    print("중립 : ",end="")
   else :
-    print("긍정")
-  
-  
-temp_str = ""
+    print("긍정 : ",end="")
+  return max
 
-while temp_str != 'stop':
-    temp_str = input()
-    sentiment_predict(temp_str)
+    
+    
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# pylint: disable=W0613, C0116
+# type: ignore[union-attr]
+# This program is dedicated to the public domain under the CC0 license.
+import random
+import logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
+
+# Enable logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+def help(update: Update, context: CallbackContext) -> None:
+    """Send a message when the command /start is issued."""
+    update.message.reply_text('사용자 채팅의 감정을 판단하여\n'
+                              '긍정,중립,부정을 3가지로 분류하여\n'
+                              '이모티콘을 답장해줌')
+
+def reply(update: Update, context: CallbackContext) -> None:
+    # text : 사용자가 입력한 채팅, max : 감정의 index
+    text = update.message.text
+    max = sentiment_predict(text)
+    print(text, end="")
+    print(max)
+    
+    # 이모티콘 리스트(부정,중립,긍정 순)
+    emo = [["😟","😕","😡","😨","😱"],["😐","🙄"],["😀","😃","😄","😁","😆","😊","🙂","😍","😋","🤗"]]
+    
+    # 버튼 생성
+    show_list = []
+    show_list.append(InlineKeyboardButton("Good",callback_data="Good"))
+    show_list.append(InlineKeyboardButton("Bad",callback_data="Bad"))
+    show_markup = InlineKeyboardMarkup(build_box(show_list,2))
+    
+    # 답장할 이모티콘
+    emotion = emo[max][int(random.random()*len(emo[max]))]
+    update.message.reply_text(emotion)
+    update.message.reply_text("정확한가요?",reply_markup=show_markup)
+
+def error(bot, update, error):
+    logger.warning("Update %s caused error %s",update,error)
+
+def build_box(buttons, n_cols, header_buttons=None, footer_buttons=None):
+    menu = [buttons[i:i+n_cols] for i in range(0,len(buttons),n_cols)]
+    if header_buttons:
+        menu.insert((0,header_buttons))
+    if footer_buttons:
+        menu.append(footer_buttons)
+    return menu
+
+def callback_get(update: Update, context: CallbackContext):
+    print("Callback")
+    if update.callback_query.data == "Good":
+        update.callback_query.message.reply_text("Good")
+        return 0;
+    elif update.callback_query.data == "Bad":
+        update.callback_query.message.reply_text("BAD")
+        return 1;
+    else:
+        update.callback_query.message.reply_text("아무것도 아니다")
+
+def main():
+    """Start the bot."""
+    # Create the Updater and pass it your bot's token.
+    # Make sure to set use_context=True to use the new context based callbacks
+    # Post version 12 this will no longer be necessary
+    my_token = '1405029887:AAH0tk74Vhv01H6iiHsYTBKAi3UXRmrEH7o'
+    updater = Updater(my_token, use_context=True)
+
+    # Get the dispatcher to register handlers
+    dispatcher = updater.dispatcher
+    # on different commands - answer in Telegram
+    dispatcher.add_handler(CommandHandler("help", help))
+    # on noncommand i.e message
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, reply))
+    dispatcher.add_handler(CallbackQueryHandler(callback_get))
+    # error handler
+    dispatcher.add_error_handler(error)
+
+    # Start the Bot
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
