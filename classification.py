@@ -17,10 +17,11 @@ import numpy as np
 train_data = pd.read_csv("수정_합본.csv")
 #네이버리뷰 추가
 train_data2 = pd.read_csv("sample.csv")
-train_data2 = train_data2[:80000]
+train_data2 = train_data2[:100000]
 train_data = pd.concat([train_data,train_data2])
+ 
+print(train_data.groupby('Emotion').size().reset_index(name='count'))
 
-print(train_data.groupby('Emotion').size().reset_index(name='count')) 
 
 #%%sentence전처리
 from nltk.corpus import stopwords 
@@ -43,9 +44,9 @@ for sentence in train_data['Sentence']:
     temp_X = okt.morphs(sentence, stem=True) # 토큰화
     temp_X = [word for word in temp_X if not word in stopwords] # 불용어 제거 
     X_train.append(temp_X) 
+    
 
-
-max_words = 35000
+max_words = 38000
 tokenizer = Tokenizer(num_words = max_words) 
 tokenizer.fit_on_texts(X_train) 
 X_train = tokenizer.texts_to_sequences(X_train) 
@@ -63,11 +64,12 @@ plt.xlabel('length of Data')
 plt.ylabel('number of Data') 
 plt.show()
 '''
+
 #%%
 
 print(3)
 y_train = []
-
+#원핫인코딩
 for i in range(len(train_data['Emotion'])): 
     if train_data['Emotion'].iloc[i] == 1: 
         y_train.append([0, 0, 1]) 
@@ -98,7 +100,7 @@ from keras.layers import BatchNormalization
 import keras
 
 print(5)
-max_len = 20 # 전체 데이터의 길이를 20로 맞춘다 
+max_len = 15 # 전체 데이터의 길이를 15로 맞춘다 
 
 x_train = pad_sequences(x_train, maxlen=max_len)
 x_test = pad_sequences(x_test, maxlen = max_len)
@@ -114,21 +116,20 @@ model = Sequential()
 model.add(Embedding(max_words,128))
 model.add(LSTM(64, return_sequences = True))
 model.add(BatchNormalization())
-model.add(Dropout(0.6)) # 드롭아웃 추가. 비율은 50%
+model.add(Dropout(0.6)) # 드롭아웃 추가. 비율은 60%
 model.add(LSTM(32, return_sequences = False))
-model.add(Dropout(0.4)) # 드롭아웃 추가. 비율은 50%
-model.add(BatchNormalization())
-model.add(Dense(16, activation='relu')) 
+model.add(BatchNormalization()) 
+model.add(Dropout(0.2)) # 드롭아웃 추가. 비율은 20%
+model.add(Dense(16, activation='relu'))
+model.add(Dropout(0.1)) # 드롭아웃 추가. 비율은 20%
 model.add(Dense(9, activation='relu')) 
-model.add(Dense(3, activation='softmax')) 
-  
-'''
-##과적합이 일어날거같으면 중지
-es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=4)
-'''
+model.add(Dense(3, activation='softmax'))
+
+print(7)  
+
 mc = ModelCheckpoint('best_model2.h5', monitor='val_acc', mode='max', verbose=1, save_best_only=True)
 
-opt = keras.optimizers.Adam(lr=0.00002)
+opt = keras.optimizers.rmsprop(lr=0.00003)
 model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['acc']) 
 history = model.fit(x_train, y_train, batch_size=100, epochs=30, callbacks=[mc], validation_data=(x_test, y_test))
 ##
